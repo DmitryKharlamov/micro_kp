@@ -1,14 +1,28 @@
-# report_service/main.py
+import sys
+from pathlib import Path
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 import asyncio
 import aio_pika
-from . import models, schemas, database, report_generator
 
-models.Base.metadata.create_all(bind=database.engine)
+# Добавляем путь к корневой директории проекта в sys.path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from report_service import models, schemas, database, report_generator
 
 app = FastAPI()
 
+# Подключение к базе данных при старте приложения
+@app.on_event("startup")
+def startup_event():
+    database.connect()
+
+# Отключение от базы данных при остановке приложения
+@app.on_event("shutdown")
+def shutdown_event():
+    database.disconnect()
+
+# Функция для получения экземпляра сессии базы данных
 def get_db():
     db = database.SessionLocal()
     try:
@@ -16,6 +30,7 @@ def get_db():
     finally:
         db.close()
 
+# Создание отчёта
 @app.post("/report", response_model=schemas.Report)
 async def create_report(role: str, db: Session = Depends(get_db)):
     loop = asyncio.get_event_loop()
@@ -25,7 +40,3 @@ async def create_report(role: str, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(report)
     return report
-
-@app.get("/reports/{report_id}", response_model=schemas.Report)
-def read_report(report_id: int, db: Session = Depends(get_db)):
-    return db.query(models.Report).filter(models.Report.id == report_id).first()

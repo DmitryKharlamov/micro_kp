@@ -1,9 +1,10 @@
-# security_service/main.py
+from datetime import datetime, timedelta  # Добавляем импорт timedelta
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from . import models, schemas, crud, auth
-from .database import engine, SessionLocal
+from security_service import models, schemas, crud, auth
+from security_service.database import engine, SessionLocal
 from fastapi.security import OAuth2PasswordRequestForm
+
 
 models.Base.metadata.create_all(bind=engine)
 

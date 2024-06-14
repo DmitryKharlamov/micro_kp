@@ -1,11 +1,22 @@
-# report_service/database.py
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "sqlite:///./reports.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Создаем экземпляр класса Engine
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+# Создаем экземпляр класса SessionLocal
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Создаем базовый класс для моделей
 Base = declarative_base()
-metadata = MetaData()
+
+# Функция для подключения к базе данных
+def connect():
+    return engine.connect()
+
+# Функция для отключения от базы данных
+def disconnect(connection):
+    connection.close()

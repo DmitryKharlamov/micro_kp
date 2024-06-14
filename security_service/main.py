@@ -1,43 +1,42 @@
-from datetime import datetime, timedelta  # Добавляем импорт timedelta
+import sys
+from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from security_service import models, schemas, crud, auth
-from security_service.database import engine, SessionLocal
-from fastapi.security import OAuth2PasswordRequestForm
+from security_service import models, schemas, crud, auth, database  # Используем абсолютный импорт
 
-
-models.Base.metadata.create_all(bind=engine)
+# Добавляем путь к корневой директории проекта в sys.path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 app = FastAPI()
 
+# Подключение к базе данных при старте приложения
+@app.on_event("startup")
+def startup_event():
+    database.Base.metadata.create_all(bind=database.engine)
+
+# Функция для получения экземпляра сессии базы данных
 def get_db():
-    db = SessionLocal()
+    db = database.SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-@app.post("/register", response_model=schemas.User)
+# Регистрация пользователя
+@app.post("/register/", response_model=schemas.User)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_username(db, username=user.username)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    return crud.create_user(db=db, user=user)
+    return crud.create_user(db, user)
 
-@app.post("/token")
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+# Логин пользователя
+@app.post("/login/")
+def login_user(form_data: auth.OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = auth.authenticate_user(db, form_data.username, form_data.password)
     if not user:
-        raise HTTPException(
-            status_code=400,
-            detail="Incorrect username or password"
-        )
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/users/me", response_model=schemas.User)
+# Получение информации о пользователе
+@app.get("/users/me/", response_model=schemas.User)
 def read_users_me(current_user: schemas.User = Depends(auth.get_current_user)):
     return current_user
